@@ -50,10 +50,28 @@ class ReflexAgent(Agent):
         successor_game_state = current_game_state.generate_successor(action=action)
         board = successor_game_state.board
         max_tile = successor_game_state.max_tile
-        score = successor_game_state.score
+        max_loc_current_x, max_loc_current_y = np.where(current_game_state.board == current_game_state.max_tile)
 
-        "*** YOUR CODE HERE ***"
-        return score
+        max_loc_successor_x, max_loc_successor_y = np.where(board == max_tile)
+        dist = dist_to_corner(max_loc_successor_x[0], max_loc_successor_y[0])
+
+        # dist = abs(max_loc_current_x[0] - max_loc_successor_x[0]) + abs(max_loc_current_y[0] - max_loc_successor_y[0])
+        score = successor_game_state.score
+        num_of_zeros = len(np.where(board == 0)[0])
+        board_mean = np.mean(board[board != 0])
+        k = 3
+        b_flat = board.flatten()
+        b_flat.sort()
+        Top_k_max = sum(b_flat[-k:])
+        return score - dist*10
+
+
+def dist_to_corner(pos_x, pos_y):
+    min_distance_to_lt = pos_x + pos_y
+    min_distance_to_lb = 3 - pos_x + pos_y
+    min_distance_to_rt = 3 - pos_y + pos_x
+    min_distance_to_rb = 6 - pos_x - pos_y
+    return min(min_distance_to_lt, min_distance_to_lb, min_distance_to_rt, min_distance_to_rb)
 
 
 def score_evaluation_function(current_game_state):
@@ -113,7 +131,6 @@ class MinmaxAgent(MultiAgentSearchAgent):
         util.raiseNotDefined()
 
 
-
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
     Your minimax agent with alpha-beta pruning (question 3)
@@ -125,7 +142,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         """
         """*** YOUR CODE HERE ***"""
         util.raiseNotDefined()
-
 
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
@@ -142,9 +158,6 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         """
         """*** YOUR CODE HERE ***"""
         util.raiseNotDefined()
-
-
-
 
 
 def better_evaluation_function(current_game_state):
