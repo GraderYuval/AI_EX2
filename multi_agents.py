@@ -50,10 +50,28 @@ class ReflexAgent(Agent):
         successor_game_state = current_game_state.generate_successor(action=action)
         board = successor_game_state.board
         max_tile = successor_game_state.max_tile
-        score = successor_game_state.score
+        max_loc_current_x, max_loc_current_y = np.where(current_game_state.board == current_game_state.max_tile)
 
-        "*** YOUR CODE HERE ***"
-        return score
+        max_loc_successor_x, max_loc_successor_y = np.where(board == max_tile)
+        dist = dist_to_corner(max_loc_successor_x[0], max_loc_successor_y[0])
+
+        # dist = abs(max_loc_current_x[0] - max_loc_successor_x[0]) + abs(max_loc_current_y[0] - max_loc_successor_y[0])
+        score = successor_game_state.score
+        num_of_zeros = len(np.where(board == 0)[0])
+        board_mean = np.mean(board[board != 0])
+        k = 3
+        b_flat = board.flatten()
+        b_flat.sort()
+        Top_k_max = sum(b_flat[-k:])
+        return score - dist*10
+
+
+def dist_to_corner(pos_x, pos_y):
+    min_distance_to_lt = pos_x + pos_y
+    min_distance_to_lb = 3 - pos_x + pos_y
+    min_distance_to_rt = 3 - pos_y + pos_x
+    min_distance_to_rb = 6 - pos_x - pos_y
+    return min(min_distance_to_lt, min_distance_to_lb, min_distance_to_rt, min_distance_to_rb)
 
 
 def score_evaluation_function(current_game_state):
@@ -91,6 +109,70 @@ class MultiAgentSearchAgent(Agent):
         return
 
 
+class Node:
+    def __init__(self, value, state, depth=0, parent=None, successors=None):
+        self.value = value
+        self.state = state
+        self.depth = depth
+        self.parent = parent
+        self.successors = successors if successors is not None else []
+
+
+def get_value(state, depth, evaluation_function, alpha=None, beta=None, player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
+    if depth == 0:
+        return evaluation_function(state), Action.STOP, state
+    best_val = -1 if player == 0 else float('inf')
+    best_action = None
+    best_state = None
+    actions = state.get_legal_actions(player)
+    if len(actions) == 0:
+        return evaluation_function(state), Action.STOP, state
+    for action in actions:
+        successor = state.generate_successor(player, action)
+        new_depth = depth - player  # if player==1 then we decrease depth
+        s_val, s_action, s_state = get_value(successor, new_depth, evaluation_function, alpha, beta, 1 - player)
+        if player == 0:
+            if alpha is not None:
+                if s_val >= beta:
+                    return float('inf'), Action.STOP, state
+                if s_val > alpha:
+                    alpha = s_val
+            update_condition = s_val > best_val
+        else:
+            if beta is not None:
+                if s_val <= alpha:
+                    return -1, Action.STOP, state
+                if s_val < beta:
+                    beta = s_val
+            update_condition = s_val < best_val
+        if update_condition:
+            best_val = s_val
+            best_action = action
+            best_state = s_state
+    return best_val, best_action, best_state
+
+#
+# def get_value(state, depth, evaluation_function, player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
+#     if depth == 0:
+#         return evaluation_function(state), Action.STOP, state
+#     best_val = -1 if player == 0 else float('inf')
+#     best_action = None
+#     best_state = None
+#     actions = state.get_legal_actions(player)
+#     if len(actions) == 0:
+#         return evaluation_function(state), Action.STOP, state
+#     for action in actions:
+#         successor = state.generate_successor(player, action)
+#         new_depth = depth - player  # if player==1 then we decrease depth
+#         s_val, s_action, s_state = get_value(successor, new_depth, evaluation_function, 1 - player)
+#         condition = s_val > best_val if player == 0 else s_val < best_val
+#         if condition:
+#             best_val = s_val
+#             best_action = action
+#             best_state = s_state
+#     return best_val, best_action, best_state
+
+
 class MinmaxAgent(MultiAgentSearchAgent):
     def get_action(self, game_state):
         """
@@ -110,8 +192,8 @@ class MinmaxAgent(MultiAgentSearchAgent):
             Returns the successor game state after an agent takes an action
         """
         """*** YOUR CODE HERE ***"""
-        util.raiseNotDefined()
-
+        val, action, state = get_value(game_state, self.depth, self.evaluation_function)
+        return action
 
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
@@ -124,8 +206,8 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         """*** YOUR CODE HERE ***"""
-        util.raiseNotDefined()
-
+        val, action, state = get_value(game_state, self.depth, self.evaluation_function, alpha=-1, beta=float('inf'))
+        return action
 
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
@@ -141,11 +223,42 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         """*** YOUR CODE HERE ***"""
-        util.raiseNotDefined()
+        val, action, state = self.get_value(game_state, self.depth, self.evaluation_function, alpha=-1, beta=float('inf'))
+        return action
 
-
-
-
+    def get_value(self, state, depth, evaluation_function, alpha=None, beta=None, player=0):
+        if depth == 0:
+            return evaluation_function(state), Action.STOP, state
+        best_val = -1 if player == 0 else float('inf')
+        best_action = None
+        best_state = None
+        sum_vals_player1 = 0
+        actions = state.get_legal_actions(player)
+        if len(actions) == 0:
+            return evaluation_function(state), Action.STOP, state
+        for action in actions:
+            successor = state.generate_successor(player, action)
+            new_depth = depth - player  # if player==1 then we decrease depth
+            s_val, s_action, s_state = get_value(successor, new_depth, evaluation_function, alpha, beta, 1 - player)
+            if player == 0:
+                if alpha is not None:
+                    if s_val >= beta:
+                        return float('inf'), Action.STOP, state
+                    if s_val > alpha:
+                        alpha = s_val
+                if s_val > best_val:
+                    best_val = s_val
+                    best_action = action
+                    best_state = s_state
+            else: #player == 1
+                if beta is not None:
+                    if s_val <= alpha:
+                        return -1, Action.STOP, state
+                    if s_val < beta:
+                        beta = s_val
+                sum_vals_player1 += s_val
+        return_val = best_val if player == 0 else (sum_vals_player1 / len(actions))
+        return return_val, best_action, best_state
 
 def better_evaluation_function(current_game_state):
     """
