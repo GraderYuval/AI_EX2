@@ -43,8 +43,6 @@ class ReflexAgent(Agent):
 
         """
 
-        # Useful information you can extract from a GameState (game_state.py)
-
         successor_game_state = current_game_state.generate_successor(action=action)
         board = successor_game_state.board
         score = successor_game_state.score
@@ -52,14 +50,6 @@ class ReflexAgent(Agent):
         board_mean = np.mean(board[board != 0])
         # adding constant to avoid negative numbers:
         return 10000 + score - 100 * (action==Action.UP) + 3 * board_mean + 10 * num_of_zeros
-
-
-def dist_to_corner(pos_x, pos_y):
-    min_distance_to_lt = pos_x + pos_y
-    min_distance_to_lb = 3 - pos_x + pos_y
-    min_distance_to_rt = 3 - pos_y + pos_x
-    min_distance_to_rb = 6 - pos_x - pos_y
-    return min(min_distance_to_lt, min_distance_to_lb, min_distance_to_rt, min_distance_to_rb)
 
 
 def score_evaluation_function(current_game_state):
@@ -97,16 +87,10 @@ class MultiAgentSearchAgent(Agent):
         return
 
 
-class Node:
-    def __init__(self, value, state, depth=0, parent=None, successors=None):
-        self.value = value
-        self.state = state
-        self.depth = depth
-        self.parent = parent
-        self.successors = successors if successors is not None else []
-
-
 def get_value(state, depth, evaluation_function, alpha=None, beta=None, player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
+    """
+    generic function for minimax and alphabeta agents. for minimax, use alpha=beta=None.
+    """
     if depth == 0:
         return evaluation_function(state), Action.STOP, state
     best_val = -1 if player == 0 else float('inf')
@@ -138,27 +122,6 @@ def get_value(state, depth, evaluation_function, alpha=None, beta=None, player=0
             best_action = action
             best_state = s_state
     return best_val, best_action, best_state
-
-#
-# def get_value(state, depth, evaluation_function, player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
-#     if depth == 0:
-#         return evaluation_function(state), Action.STOP, state
-#     best_val = -1 if player == 0 else float('inf')
-#     best_action = None
-#     best_state = None
-#     actions = state.get_legal_actions(player)
-#     if len(actions) == 0:
-#         return evaluation_function(state), Action.STOP, state
-#     for action in actions:
-#         successor = state.generate_successor(player, action)
-#         new_depth = depth - player  # if player==1 then we decrease depth
-#         s_val, s_action, s_state = get_value(successor, new_depth, evaluation_function, 1 - player)
-#         condition = s_val > best_val if player == 0 else s_val < best_val
-#         if condition:
-#             best_val = s_val
-#             best_action = action
-#             best_state = s_state
-#     return best_val, best_action, best_state
 
 
 class MinmaxAgent(MultiAgentSearchAgent):
@@ -239,9 +202,6 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return return_val, best_action, best_state
 
 
-def row_diff(state):
-    row_diffs = state[3, :]
-
 def large_num_in_row(row):
     good_nums = [0, 2, 4]
     return int(row[0] not in good_nums) + int(row[1] not in good_nums) + int(row[2] not in good_nums) + int(row[3] not in good_nums)
@@ -251,33 +211,18 @@ def better_evaluation_function(current_game_state):
     """
     Your extreme 2048 evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did> TODO
+    DESCRIPTION: we try to keep our higher tiles in the upper part of the board, and to some extent to the left.
+    we use several huristics:
+    1- punishment for any large tile in the bottom row
+    2- reward for the sum of tiles in each of the other rows, in a gradient manner (higher row receives higher weight)
+    3- adding weight to the top right cell to keep the highest tile there
+    4- adding constant to avoid negative numbers
     """
-    # Useful information you can extract from a GameState (game_state.py)
-
-    # successor_game_state = current_game_state.generate_successor(action=action)
     board = current_game_state.board
-    max_tile = current_game_state.max_tile
     score = current_game_state.score
-    num_of_zeros = len(np.where(board == 0)[0])
-    board_mean = np.mean(board[board != 0])
-    is_terminal = 0
-    if len(current_game_state.get_legal_actions(0)) == 0 or len(current_game_state.get_legal_actions(1)) == 0:
-        is_terminal = 1
-    # adding constant to avoid negative numbers:
-    is_large_number_down = large_num_in_row(current_game_state.board[3, :])
-    # return 10000 + score - 100 * np.sum(current_game_state.board[0, :]) + 3 * board_mean + 10 * num_of_zeros
-
-    return 100000 + score - 100 * is_large_number_down + 4 * np.sum(current_game_state.board[0, :]) + 2 * np.sum(current_game_state.board[1, :]) + np.sum(current_game_state.board[2, :])
-
-    #* (np.sum(current_game_state.board) - current_game_state.board[0, 0])
-    # - np.sum(current_game_state.board[1:3, 1:3])
-    #+ 100 * num_of_zeros
-    # return max(0, score + (score / 16) * num_of_zeros) - current_game_state.max_tile * is_terminal
-    # return score + (score/16)*num_of_zeros
-    # #
-    # best_action_score = mcts(current_game_state, 0.02)
-    # return best_action_score if best_action_score != None else 0
+    is_large_number_down = large_num_in_row(board[3, :])
+    top_right_weight = 2 * board[0, 0] + board[0, 1]
+    return 100000 + score - 100 * is_large_number_down + 5 * np.sum(board[0, :]) + 2 * np.sum(board[1, :]) + np.sum(board[2, :]) + top_right_weight
 
 
 # Abbreviation
