@@ -223,7 +223,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         """*** YOUR CODE HERE ***"""
-        val, action, state = self.get_value(game_state, self.depth, self.evaluation_function)
+        val, action, state = self.get_value(game_state, self.depth, self.evaluation_function, alpha=-1, beta=float('inf'))
         return action
 
     def get_value(self, state, depth, evaluation_function, player=0):
