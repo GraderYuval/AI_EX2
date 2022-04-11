@@ -49,8 +49,7 @@ class ReflexAgent(Agent):
         num_of_zeros = len(np.where(board == 0)[0])
         board_mean = np.mean(board[board != 0])
         # adding constant to avoid negative numbers:
-        return 10000 + score - 100 * (action==Action.UP) + 3 * board_mean + 10 * num_of_zeros
-
+        return 10000 + score - 100 * (action == Action.UP) + 3 * board_mean + 10 * num_of_zeros
 
 def score_evaluation_function(current_game_state):
     """
@@ -207,22 +206,54 @@ def large_num_in_row(row):
     return int(row[0] not in good_nums) + int(row[1] not in good_nums) + int(row[2] not in good_nums) + int(row[3] not in good_nums)
 
 
+def get_diff_matrices(board):
+    shifted_down_matrix = board[1:4, :]
+    down_diff_matrix = board[:3, :] - shifted_down_matrix
+    shifted_right_matrix = board[:, 1:4]
+    right_diff_matrix = board[:, :3] - shifted_right_matrix
+    return down_diff_matrix, right_diff_matrix
+
+
+def monotonous_score(down_diff_matrix, right_diff_matrix):
+    down_mono_score = np.where(down_diff_matrix >= 0, 1, 0).sum()
+    right_mono_score = np.where(right_diff_matrix >= 0, 1, 0).sum()
+    return down_mono_score + right_mono_score
+
+
 def better_evaluation_function(current_game_state):
     """
     Your extreme 2048 evaluation function (question 5).
 
-    DESCRIPTION: we try to keep our higher tiles in the upper part of the board, and to some extent to the left.
-    we use several huristics:
-    1- punishment for any large tile in the bottom row
-    2- reward for the sum of tiles in each of the other rows, in a gradient manner (higher row receives higher weight)
-    3- adding weight to the top right cell to keep the highest tile there
-    4- adding constant to avoid negative numbers
+    DESCRIPTION:
+    1- we keep our higher tiles in the upper-left part of the board by punishing high tiles in bottom row and right column, and by rewarding high tiles in top left corner.
+    2- we keep our board ordered in a monotonous order, from bottom right to top left, by calculating the difference between adjacent cells.
+    3- we reward a large quantity of zero-tiles, to encourage an empty board
+    4- we punish for large differences between adjacent tiles, to avoid small numbers interrupting between larger tiles
+    5- we add a constant to avoid negative numbers
     """
+    zeros_factor = 10
+    top_left_factor = 2
+    second_top_left_factor = 1
+
+    if current_game_state.done:
+        return 0
     board = current_game_state.board
     score = current_game_state.score
+    # punish large numbers in bottom row
     is_large_number_down = large_num_in_row(board[3, :])
-    top_right_weight = 2 * board[0, 0] + board[0, 1]
-    return 100000 + score - 100 * is_large_number_down + 5 * np.sum(board[0, :]) + 2 * np.sum(board[1, :]) + np.sum(board[2, :]) + top_right_weight
+    is_large_number_right = large_num_in_row(board[:, 3])
+    # reward large numbers in top-left corner and next to it
+    top_left_score = top_left_factor * board[0, 0] + second_top_left_factor * board[0, 1]
+
+    # calculate difference between rows and columns:
+    down_diff_matrix, right_diff_matrix = get_diff_matrices(board)
+    # calculate monotonicity of board:
+    mono_score = monotonous_score(down_diff_matrix, right_diff_matrix)
+    # calculate distance between adjacent cells:
+    diff_score = np.abs(down_diff_matrix).sum() + np.abs(right_diff_matrix).sum()
+    zeros_score = len(np.where(board == 0)[0]) * zeros_factor
+
+    return 100000 + score + top_left_score + mono_score + zeros_score - diff_score + is_large_number_down + is_large_number_right
 
 
 # Abbreviation
