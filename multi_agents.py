@@ -32,8 +32,6 @@ class ReflexAgent(Agent):
         best_indices = [index for index in range(len(scores)) if scores[index] == best_score]
         chosen_index = np.random.choice(best_indices)  # Pick randomly among the best
 
-        "Add more of your code here if you want to"
-
         return legal_moves[chosen_index]
 
     def evaluation_function(self, current_game_state, action):
@@ -49,21 +47,11 @@ class ReflexAgent(Agent):
 
         successor_game_state = current_game_state.generate_successor(action=action)
         board = successor_game_state.board
-        max_tile = successor_game_state.max_tile
-        max_loc_current_x, max_loc_current_y = np.where(current_game_state.board == current_game_state.max_tile)
-
-        max_loc_successor_x, max_loc_successor_y = np.where(board == max_tile)
-        dist = dist_to_corner(max_loc_successor_x[0], max_loc_successor_y[0])
-
-        # dist = abs(max_loc_current_x[0] - max_loc_successor_x[0]) + abs(max_loc_current_y[0] - max_loc_successor_y[0])
         score = successor_game_state.score
         num_of_zeros = len(np.where(board == 0)[0])
         board_mean = np.mean(board[board != 0])
-        k = 3
-        b_flat = board.flatten()
-        b_flat.sort()
-        Top_k_max = sum(b_flat[-k:])
-        return score - dist * 10
+        # adding constant to avoid negative numbers:
+        return 10000 + score - 100 * (action==Action.UP) + 3 * board_mean + 10 * num_of_zeros
 
 
 def dist_to_corner(pos_x, pos_y):
@@ -223,23 +211,23 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         """*** YOUR CODE HERE ***"""
-        val, action, state = self.get_value(game_state, self.depth, self.evaluation_function)
+        val, action, state = self.get_value(game_state, self.depth)
         return action
 
-    def get_value(self, state, depth, evaluation_function, player=0):
+    def get_value(self, state, depth, player=0):
         if depth == 0:
-            return evaluation_function(state), Action.STOP, state
+            return self.evaluation_function(state), Action.STOP, state
         best_val = -1 if player == 0 else float('inf')
         best_action = None
         best_state = None
         sum_vals_player1 = 0
         actions = state.get_legal_actions(player)
         if len(actions) == 0:
-            return evaluation_function(state), Action.STOP, state
+            return self.evaluation_function(state), Action.STOP, state
         for action in actions:
             successor = state.generate_successor(player, action)
             new_depth = depth - player  # if player==1 then we decrease depth
-            s_val, s_action, s_state = self.get_value(successor, new_depth, evaluation_function, 1 - player)
+            s_val, s_action, s_state = self.get_value(successor, new_depth, 1 - player)
             if player == 0:
                 if s_val > best_val:
                     best_val = s_val
@@ -250,37 +238,37 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return_val = best_val if player == 0 else (sum_vals_player1 / len(actions))
         return return_val, best_action, best_state
 
+
+def row_diff(state):
+    row_diffs = state[3, :]
+
+def large_num_in_row(row):
+    good_nums = [0, 2, 4]
+    return int(row[0] not in good_nums) + int(row[1] not in good_nums) + int(row[2] not in good_nums) + int(row[3] not in good_nums)
+
+
 def better_evaluation_function(current_game_state):
     """
     Your extreme 2048 evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: <write something here so we know what you did> TODO
     """
     # Useful information you can extract from a GameState (game_state.py)
 
     # successor_game_state = current_game_state.generate_successor(action=action)
     board = current_game_state.board
     max_tile = current_game_state.max_tile
-    max_loc_current_x, max_loc_current_y = np.where(current_game_state.board == current_game_state.max_tile)
-
-    max_loc_successor_x, max_loc_successor_y = np.where(board == max_tile)
-    dist = dist_to_corner(max_loc_successor_x[0], max_loc_successor_y[0])
-
-    # dist = abs(max_loc_current_x[0] - max_loc_successor_x[0]) + abs(max_loc_current_y[0] - max_loc_successor_y[0])
     score = current_game_state.score
     num_of_zeros = len(np.where(board == 0)[0])
     board_mean = np.mean(board[board != 0])
-    k = 3
-    b_flat = board.flatten()
-    b_flat.sort()
-    Top_k_max = sum(b_flat[-k:-1])
-    v = max(0, score - Top_k_max)
-
     is_terminal = 0
     if len(current_game_state.get_legal_actions(0)) == 0 or len(current_game_state.get_legal_actions(1)) == 0:
         is_terminal = 1
+    # adding constant to avoid negative numbers:
+    is_large_number_down = large_num_in_row(current_game_state.board[3, :])
+    # return 10000 + score - 100 * np.sum(current_game_state.board[0, :]) + 3 * board_mean + 10 * num_of_zeros
 
-    return 10000 + score - 5 * np.sum(current_game_state.board[1:3, 1:3])
+    return 100000 + score - 100 * is_large_number_down + 4 * np.sum(current_game_state.board[0, :]) + 2 * np.sum(current_game_state.board[1, :]) + np.sum(current_game_state.board[2, :])
 
     #* (np.sum(current_game_state.board) - current_game_state.board[0, 0])
     # - np.sum(current_game_state.board[1:3, 1:3])

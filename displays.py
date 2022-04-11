@@ -32,3 +32,10 @@ class SummaryDisplay(object):
         print("highest tile: %s" % self.highest_tile)
         print("game_durations: %s" % self.game_durations)
         print("win rate: %s" % win_rate)
+        wins_per_tile = {}
+        for tile in self.highest_tile:
+            if tile in wins_per_tile:
+                wins_per_tile[tile] += 1
+            else:
+                wins_per_tile[tile] = 1
+        print(wins_per_tile)
