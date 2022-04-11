@@ -63,7 +63,7 @@ class ReflexAgent(Agent):
         b_flat = board.flatten()
         b_flat.sort()
         Top_k_max = sum(b_flat[-k:])
-        return score - dist*10
+        return score - dist * 10
 
 
 def dist_to_corner(pos_x, pos_y):
@@ -118,7 +118,8 @@ class Node:
         self.successors = successors if successors is not None else []
 
 
-def get_value(state, depth, evaluation_function, alpha=None, beta=None, player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
+def get_value(state, depth, evaluation_function, alpha=None, beta=None,
+              player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
     if depth == 0:
         return evaluation_function(state), Action.STOP, state
     best_val = -1 if player == 0 else float('inf')
@@ -150,6 +151,7 @@ def get_value(state, depth, evaluation_function, alpha=None, beta=None, player=0
             best_action = action
             best_state = s_state
     return best_val, best_action, best_state
+
 
 #
 # def get_value(state, depth, evaluation_function, player=0):  # player = 0 --> want to maiximize. player = 1 --> want to minimize
@@ -239,26 +241,116 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         for action in actions:
             successor = state.generate_successor(player, action)
             new_depth = depth - player  # if player==1 then we decrease depth
-            s_val, s_action, s_state = get_value(successor, new_depth, evaluation_function, alpha, beta, 1 - player)
+            s_val, s_action, s_state = self.get_value(successor, new_depth, evaluation_function, alpha, beta, 1 - player)
             if player == 0:
                 if alpha is not None:
                     if s_val >= beta:
                         return float('inf'), Action.STOP, state
                     if s_val > alpha:
                         alpha = s_val
-                if s_val > best_val:
-                    best_val = s_val
-                    best_action = action
-                    best_state = s_state
-            else: #player == 1
+                update_condition = s_val > best_val
+            else:  # player == 1
                 if beta is not None:
                     if s_val <= alpha:
                         return -1, Action.STOP, state
                     if s_val < beta:
                         beta = s_val
+                update_condition = s_val < best_val
                 sum_vals_player1 += s_val
+
+        if update_condition:
+            best_val = s_val
+            best_action = action
+            best_state = s_state
         return_val = best_val if player == 0 else (sum_vals_player1 / len(actions))
         return return_val, best_action, best_state
+
+
+# class Node:
+#     def __init__(self, a, p, player):  # move is from parent to node
+#         self.action, self.parent, self.children = a, p, []
+#         self.depth, self.score, self.visits = 0, 0, 0
+#         self.player = player
+#
+#     def expand_node(self, state, player):
+#         actions = state.get_legal_actions(player)
+#         if len(actions) != 0:
+#             for a in actions:
+#                 nc = Node(a, self, 1 - player)  # new child node
+#                 self.children.append(nc)
+#
+#     def update(self, score):
+#         self.visits += 1
+#         self.score += score
+#
+#     def is_leaf(self):
+#         return len(self.children) == 0
+#
+#     def has_parent(self):
+#         return self.parent is not None
+#
+#
+# import time
+# import copy
+#
+#
+# def tree_policy_child(node):
+#     # Random Pick
+#     if len(node.children) == 0: return None
+#     child_index = np.random.randint(len(node.children))
+#     return node.children[child_index]
+#
+#
+# def simulation_policy_child(state, player):
+#     actions = state.get_legal_actions(player)
+#     actions_len = len(actions)
+#     if actions_len == 0: return state
+#     action_index = np.random.randint(actions_len)
+#     action = actions[action_index]
+#     return state.generate_successor(player, action)
+#
+#
+# def is_terminal(state, player):
+#     return len(state.get_legal_actions(player)) == 0
+#
+#
+# def best_move(node):
+#     if node.is_leaf():
+#         return None
+#     max_child = node.children[0]
+#     for c in node.children:
+#         if c.score > max_child.score:
+#             max_child = c
+#     return max_child.score
+#
+#
+# def mcts(state, time_limit=5, player=0):
+#     timeout = time.time() + time_limit
+#     root_node = Node(None, None, 0)
+#     c = 0
+#     while time.time() < timeout:
+#         c += 1
+#         n, s = root_node, copy.deepcopy(state)
+#         while not n.is_leaf():  # traverse down to a leaf
+#             n = tree_policy_child(n)
+#             s = s.generate_successor(1 - n.player, n.action)
+#         n.expand_node(s, n.player)  # expand
+#         n = tree_policy_child(n)
+#         if n is None: continue
+#
+#         curr_player = n.player
+#         d = 1
+#         while not is_terminal(s, curr_player):  # simulate
+#             s = simulation_policy_child(s, curr_player)
+#             curr_player = 1 - curr_player
+#             d += 1
+#         result = s.score
+#
+#         while n.has_parent():  # propagate up the result
+#             n.update(result)
+#             n = n.parent
+#     return best_move(root_node)
+
 
 def better_evaluation_function(current_game_state):
     """
@@ -266,8 +358,40 @@ def better_evaluation_function(current_game_state):
 
     DESCRIPTION: <write something here so we know what you did>
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    # Useful information you can extract from a GameState (game_state.py)
+
+    # successor_game_state = current_game_state.generate_successor(action=action)
+    board = current_game_state.board
+    max_tile = current_game_state.max_tile
+    max_loc_current_x, max_loc_current_y = np.where(current_game_state.board == current_game_state.max_tile)
+
+    max_loc_successor_x, max_loc_successor_y = np.where(board == max_tile)
+    dist = dist_to_corner(max_loc_successor_x[0], max_loc_successor_y[0])
+
+    # dist = abs(max_loc_current_x[0] - max_loc_successor_x[0]) + abs(max_loc_current_y[0] - max_loc_successor_y[0])
+    score = current_game_state.score
+    num_of_zeros = len(np.where(board == 0)[0])
+    board_mean = np.mean(board[board != 0])
+    k = 3
+    b_flat = board.flatten()
+    b_flat.sort()
+    Top_k_max = sum(b_flat[-k:-1])
+    v = max(0, score - Top_k_max)
+
+    is_terminal = 0
+    if len(current_game_state.get_legal_actions(0)) == 0 or len(current_game_state.get_legal_actions(1)) == 0:
+        is_terminal = 1
+
+    return 10000 + score - 5 * np.sum(current_game_state.board[1:3, 1:3])
+
+    #* (np.sum(current_game_state.board) - current_game_state.board[0, 0])
+    # - np.sum(current_game_state.board[1:3, 1:3])
+    #+ 100 * num_of_zeros
+    # return max(0, score + (score / 16) * num_of_zeros) - current_game_state.max_tile * is_terminal
+    # return score + (score/16)*num_of_zeros
+    # #
+    # best_action_score = mcts(current_game_state, 0.02)
+    # return best_action_score if best_action_score != None else 0
 
 
 # Abbreviation
