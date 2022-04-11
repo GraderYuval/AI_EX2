@@ -223,7 +223,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         """*** YOUR CODE HERE ***"""
-        val, action, state = self.get_value(game_state, self.depth, self.evaluation_function, alpha=-1, beta=float('inf'))
+        val, action, state = self.get_value(game_state, self.depth, self.evaluation_function)
         return action
 
     def get_value(self, state, depth, evaluation_function, player=0):
@@ -239,23 +239,13 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         for action in actions:
             successor = state.generate_successor(player, action)
             new_depth = depth - player  # if player==1 then we decrease depth
-            s_val, s_action, s_state = get_value(successor, new_depth, evaluation_function, alpha, beta, 1 - player)
+            s_val, s_action, s_state = self.get_value(successor, new_depth, evaluation_function, 1 - player)
             if player == 0:
-                if alpha is not None:
-                    if s_val >= beta:
-                        return float('inf'), Action.STOP, state
-                    if s_val > alpha:
-                        alpha = s_val
                 if s_val > best_val:
                     best_val = s_val
                     best_action = action
                     best_state = s_state
             else: #player == 1
-                if beta is not None:
-                    if s_val <= alpha:
-                        return -1, Action.STOP, state
-                    if s_val < beta:
-                        beta = s_val
                 sum_vals_player1 += s_val
         return_val = best_val if player == 0 else (sum_vals_player1 / len(actions))
         return return_val, best_action, best_state
